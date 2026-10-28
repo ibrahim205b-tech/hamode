@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { CategoryIcon } from "./icons";
+import { imageUrl } from "@/lib/demo";
 
 /** صورة المنتج من قاعدة البيانات، أو رسم بديل أنيق عند عدم وجود صورة */
 export function ProductImage({
@@ -7,7 +8,7 @@ export function ProductImage({
 }: { uploadId?: string | null; alt: string; icon?: string | null; sizes?: string; priority?: boolean; className?: string }) {
   if (uploadId) {
     return (
-      <Image src={`/api/images/${uploadId}`} alt={alt} fill sizes={sizes} priority={priority} className={`object-contain p-3 ${className}`} />
+      <Image src={imageUrl(uploadId)} alt={alt} fill sizes={sizes} priority={priority} className={`object-contain p-3 ${className}`} />
     );
   }
   return (

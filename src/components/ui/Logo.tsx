@@ -1,3 +1,5 @@
+import { imageUrl } from "@/lib/demo";
+
 /** شعار حمودي الخبير — عمل فني أصلي بصيغة SVG: هاتف بدائرة إلكترونية تشكّل حرف H */
 export function LogoMark({ size = 40, className = "" }: { size?: number; className?: string }) {
   return (
@@ -32,7 +34,7 @@ export function Logo({ nameAr = "حمودي الخبير", nameEn = "HAMMOUDI EX
     <span className="inline-flex items-center gap-2.5">
       {imageId ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={`/api/images/${imageId}`} alt="" width={size} height={size} className="rounded-xl object-contain" style={{ width: size, height: size }} />
+        <img src={imageUrl(imageId)} alt="" width={size} height={size} className="rounded-xl object-contain" style={{ width: size, height: size }} />
       ) : (
         <LogoMark size={size} />
       )}

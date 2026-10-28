@@ -8,6 +8,8 @@ import { formatNumber } from "@/lib/format";
 import { ProductGrid } from "./ProductCard";
 import { EmptyState } from "../ui/Empty";
 import { AutoSubmitSelect } from "./AutoSubmit";
+import { DEMO_STATIC, withBase } from "@/lib/demo";
+import { DemoCatalog } from "./DemoCatalog";
 
 const SORTS: [string, string][] = [
   ["relevance", "الأكثر صلة"],
@@ -60,7 +62,7 @@ export async function CatalogView({ filters, basePath = "/products", lockCategor
   if (!lockCategory && filters.category) active.push({ label: `القسم: ${topCats.flatMap((c) => [c, ...c.children]).find((c) => c.slug === filters.category)?.nameAr ?? ""}`, key: "category" });
 
   const filterForm = (
-    <form action={basePath} method="get" className="space-y-4">
+    <form action={withBase(basePath)} method="get" className="space-y-4">
       {filters.q && <input type="hidden" name="q" value={filters.q} />}
       {filters.sort && <input type="hidden" name="sort" value={filters.sort} />}
       {filters.offers && <input type="hidden" name="offers" value="1" />}
@@ -158,9 +160,13 @@ export async function CatalogView({ filters, basePath = "/products", lockCategor
             <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold"><SlidersHorizontal className="h-4 w-4 text-cyan-400" /> تصفية النتائج</summary>
             <div className="mt-4">{filterForm}</div>
           </details>
+          {DEMO_STATIC ? (
+            <DemoCatalog basePath={basePath} maxQty={s.order.maxQtyPerItem} locked={{ ...(lockCategory && filters.category ? { category: filters.category } : {}), ...(filters.technician && basePath === "/technicians" ? { tech: "1" } : {}) }} />
+          ) : (
+          <>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-ink-300" aria-live="polite"><span className="font-semibold text-white tabular">{formatNumber(result.total)}</span> منتج</p>
-            <form action={basePath} method="get" className="flex items-center gap-2">
+            <form action={withBase(basePath)} method="get" className="flex items-center gap-2">
               {[...toParams(filters, { sort: undefined }).entries()].filter(([k]) => !(lockCategory && k === "category")).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
               <label htmlFor="sort" className="text-sm text-ink-300">ترتيب</label>
               <AutoSubmitSelect id="sort" name="sort" defaultValue={filters.sort ?? "relevance"} className="input !w-auto !py-2" options={SORTS} />
@@ -190,7 +196,9 @@ export async function CatalogView({ filters, basePath = "/products", lockCategor
               action={<Link href={basePath} className="btn-secondary">مسح الفلاتر</Link>}
             />
           )}
-          {result.pages > 1 && (
+          </>
+          )}
+          {!DEMO_STATIC && result.pages > 1 && (
             <nav className="mt-8 flex items-center justify-center gap-2" aria-label="الصفحات">
               {result.page > 1 && <Link className="btn-secondary btn-sm" href={href({ page: String(result.page - 1) })} rel="prev">السابق</Link>}
               <span className="px-3 text-sm text-ink-300 tabular">صفحة {result.page} من {result.pages}</span>

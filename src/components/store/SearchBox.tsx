@@ -4,6 +4,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Search, Smartphone, FolderOpen, Loader2 } from "lucide-react";
+import { DEMO_STATIC, imageUrl } from "@/lib/demo";
+import { loadDemoData, matchesQuery } from "./demoData";
+import { normalizeArabic } from "@/lib/arabic";
 
 type Suggest = {
   products: { slug: string; nameAr: string; sku: string; price: number; imageId: string | null }[];
@@ -36,6 +39,17 @@ export function SearchBox({ initial = "", autoFocus = false, size = "md" }: { in
       abortRef.current = ac;
       setLoading(true);
       try {
+        if (DEMO_STATIC) {
+          const d = await loadDemoData();
+          const n = normalizeArabic(term);
+          setData({
+            products: d.products.filter((p) => matchesQuery(p.searchText, term)).slice(0, 6).map((p) => ({ slug: p.slug, nameAr: p.nameAr, sku: p.sku, price: p.price, imageId: p.images[0]?.uploadId ?? null })),
+            models: d.models.filter((m) => normalizeArabic(m.name).includes(n)).slice(0, 4),
+            categories: d.categories.filter((c) => normalizeArabic(`${c.nameAr} ${c.nameEn ?? ""}`).includes(n)).slice(0, 3),
+          });
+          setLoading(false);
+          return;
+        }
         const res = await fetch(`/api/search/suggest?q=${encodeURIComponent(term)}`, { signal: ac.signal });
         if (res.ok) setData(await res.json());
       } catch {}
@@ -122,7 +136,7 @@ export function SearchBox({ initial = "", autoFocus = false, size = "md" }: { in
             >
               <span className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-ink-800 text-ink-300">
                 {it.kind === "product" && it.imageId ? (
-                  <Image src={`/api/images/${it.imageId}`} alt="" fill sizes="40px" className="bg-ink-50 object-contain p-0.5" />
+                  <Image src={imageUrl(it.imageId)} alt="" fill sizes="40px" className="bg-ink-50 object-contain p-0.5" />
                 ) : it.kind === "model" ? (
                   <Smartphone className="h-5 w-5 text-cyan-400" />
                 ) : it.kind === "category" ? (

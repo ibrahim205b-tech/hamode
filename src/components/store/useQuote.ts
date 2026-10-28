@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "./CartProvider";
+import { DEMO_STATIC } from "@/lib/demo";
+import { demoQuote, loadDemoData } from "./demoData";
 
 export type ClientQuote = {
   lines: { productId: string; slug: string; sku: string; nameAr: string; imageId: string | null; quantity: number; unitPrice: number; regularPrice: number; lineTotal: number; stockQty: number; isDemo: boolean }[];
@@ -36,6 +38,15 @@ export function useQuote(opts: { governorate?: string; deliveryMethodId?: string
     setLoading(true);
     const t = setTimeout(async () => {
       try {
+        if (DEMO_STATIC) {
+          // نسخة العرض الثابتة: لا يوجد خادم، فيُحسب المجموع في المتصفح من بيانات العرض
+          const q = demoQuote(await loadDemoData(), items) as ClientQuote;
+          if (my !== seq.current) return;
+          setQuote(q);
+          setError(null);
+          syncFromQuote(q.lines);
+          return;
+        }
         const res = await fetch("/api/cart/quote", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

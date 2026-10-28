@@ -5,6 +5,7 @@ import { waLink, toLocalIraqi } from "@/lib/whatsapp";
 import { Logo } from "../ui/Logo";
 import { WhatsAppIcon } from "../ui/WhatsAppIcon";
 import { MapPin, Phone, Clock, Mail } from "lucide-react";
+import { DEMO_STATIC } from "@/lib/demo";
 
 const POLICY_LABELS: Record<string, string> = {
   shipping: "سياسة التوصيل",
@@ -45,8 +46,8 @@ export async function Footer() {
             <li><Link className="hover:text-white" href="/devices">تسوق حسب الجهاز</Link></li>
             <li><Link className="hover:text-white" href="/products?offers=1">العروض</Link></li>
             <li><Link className="hover:text-white" href="/technicians">قسم الفنيين</Link></li>
-            <li><Link className="hover:text-white" href="/track">تتبع طلبك</Link></li>
-            <li><Link className="hover:text-white" href="/account">حسابي</Link></li>
+            {!DEMO_STATIC && <li><Link className="hover:text-white" href="/track">تتبع طلبك</Link></li>}
+            {!DEMO_STATIC && <li><Link className="hover:text-white" href="/account">حسابي</Link></li>}
             {policies.map(([k]) => (
               <li key={k}><Link className="hover:text-white" href={`/policies/${k}`}>{POLICY_LABELS[k]}</Link></li>
             ))}

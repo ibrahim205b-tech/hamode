@@ -10,3 +10,5 @@ next-env.d.ts
 /playwright-report
 /coverage
 .DS_Store
+.next-demo
+/out-demo

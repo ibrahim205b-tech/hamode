@@ -4,6 +4,7 @@ import { getSettings } from "@/lib/settings";
 import { Logo } from "../ui/Logo";
 import { SearchBox } from "./SearchBox";
 import { AccountLink, CartButton, MobileMenu, MobileSearchToggle } from "./HeaderClient";
+import { DEMO_STATIC } from "@/lib/demo";
 
 export const EXTRA_LINKS = [
   { href: "/devices", label: "تسوق حسب الجهاز" },
@@ -12,7 +13,7 @@ export const EXTRA_LINKS = [
   { href: "/track", label: "تتبع طلبك" },
   { href: "/account", label: "حسابي" },
   { href: "/contact", label: "تواصل معنا" },
-];
+].filter((l) => !DEMO_STATIC || !["/track", "/account"].includes(l.href)); // نسخة العرض بدون حسابات أو تتبع
 
 export async function Header() {
   const [s, cats] = await Promise.all([
@@ -39,7 +40,7 @@ export async function Header() {
             <MobileSearchToggle>
               <SearchBox autoFocus />
             </MobileSearchToggle>
-            <AccountLink />
+            {!DEMO_STATIC && <AccountLink />}
             <CartButton />
           </div>
         </div>

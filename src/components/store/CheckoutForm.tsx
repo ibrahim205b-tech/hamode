@@ -8,6 +8,7 @@ import { useCart } from "./CartProvider";
 import { useQuote } from "./useQuote";
 import { formatIQD } from "@/lib/format";
 import { EmptyState } from "../ui/Empty";
+import { DEMO_STATIC } from "@/lib/demo";
 
 type Method = { id: string; nameAr: string; description: string | null; kind: "DELIVERY" | "PICKUP" };
 type Address = { governorate: string; area: string; address: string };
@@ -34,6 +35,7 @@ export function CheckoutForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serverIssues, setServerIssues] = useState<{ message: string }[]>([]);
+  const [demoDone, setDemoDone] = useState(false);
   const keyRef = useRef<string>("");
   const { quote, loading } = useQuote({ governorate: form.governorate, deliveryMethodId: form.deliveryMethodId, discountCode: code });
 
@@ -58,6 +60,11 @@ export function CheckoutForm({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
+    if (DEMO_STATIC) {
+      // نسخة العرض لا تحتوي خادماً أو قاعدة بيانات — لا يُسجل أي طلب ولا تُرسل أي بيانات
+      setDemoDone(true);
+      return;
+    }
     setError(null);
     setServerIssues([]);
     setSubmitting(true);
@@ -204,6 +211,11 @@ export function CheckoutForm({
             ))}
             {quote && quote.issues.some((i) => i.kind !== "discount") && <Link href="/cart" className="link text-xs">مراجعة السلة</Link>}
           </div>
+        )}
+        {demoDone && (
+          <p role="status" className="mt-4 rounded-lg border border-amber-400/40 bg-amber-400/10 p-3 text-sm leading-7 text-amber-100">
+            هذه نسخة عرض تجريبية: لم يتم تسجيل أي طلب ولم تُرسل بياناتك. في النسخة الكاملة يُسجَّل الطلب برقم فريد ويُخصم من المخزون، وتظهر صفحة تأكيد مع إمكانية إرسال الطلب عبر واتساب.
+          </p>
         )}
         {error && <p className="mt-4 rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm text-red-200" role="alert">{error}</p>}
 

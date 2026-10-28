@@ -7,6 +7,7 @@ import "./globals.css";
 import "./print.css";
 import { getSettings, siteUrl } from "@/lib/settings";
 import { CartProvider } from "@/components/store/CartProvider";
+import { BASE_PATH, DEMO_STATIC } from "@/lib/demo";
 
 // كل الصفحات تُعرض من قاعدة البيانات مباشرة حتى تنعكس تغييرات الإعدادات (مثل رقم واتساب) فوراً
 export const dynamic = "force-dynamic";
@@ -25,7 +26,9 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: { type: "website", locale: "ar_IQ", siteName: `${s.nameAr} | ${s.nameEn}`, title, description },
     twitter: { card: "summary_large_image", title, description },
     alternates: { canonical: "/" },
-    icons: { icon: "/icon.svg" },
+    icons: { icon: `${BASE_PATH}/icon.svg` },
+    // نسخة العرض التجريبية لا تُفهرس في محركات البحث
+    ...(DEMO_STATIC ? { robots: { index: false, follow: false } } : {}),
   };
 }
 

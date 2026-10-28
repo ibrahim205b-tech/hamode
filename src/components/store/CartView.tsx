@@ -9,6 +9,7 @@ import { formatIQD } from "@/lib/format";
 import { cartShareMessage, waLink } from "@/lib/whatsapp";
 import { EmptyState } from "../ui/Empty";
 import { WhatsAppIcon } from "../ui/WhatsAppIcon";
+import { imageUrl } from "@/lib/demo";
 
 export function CartView({ waNumber }: { waNumber: string }) {
   const { items, ready, setQty, remove } = useCart();
@@ -49,7 +50,7 @@ export function CartView({ waNumber }: { waNumber: string }) {
         {(quote ? lines : []).map((l) => (
           <div key={l.productId} className="card flex gap-3 p-3 sm:gap-4 sm:p-4">
             <Link href={`/product/${l.slug}`} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-ink-50 sm:h-24 sm:w-24">
-              {l.imageId ? <Image src={`/api/images/${l.imageId}`} alt={l.nameAr} fill sizes="96px" className="object-contain p-1.5" /> : <span className="grid h-full place-items-center text-ink-400"><ShoppingBag className="h-7 w-7" /></span>}
+              {l.imageId ? <Image src={imageUrl(l.imageId)} alt={l.nameAr} fill sizes="96px" className="object-contain p-1.5" /> : <span className="grid h-full place-items-center text-ink-400"><ShoppingBag className="h-7 w-7" /></span>}
             </Link>
             <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex items-start justify-between gap-2">

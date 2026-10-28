@@ -14,6 +14,7 @@ import { DemoBadge, ProductGrid, StockBadge } from "@/components/store/ProductCa
 import { Price } from "@/components/ui/Price";
 import { WhatsAppIcon } from "@/components/ui/WhatsAppIcon";
 import type { CompatStatus } from "@prisma/client";
+import { imageUrl } from "@/lib/demo";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ model?: string }> };
 
@@ -44,7 +45,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: p.nameAr,
     description,
     alternates: { canonical: `/product/${p.slug}` },
-    openGraph: { title: p.nameAr, description, type: "website", images: p.images[0] ? [{ url: `/api/images/${p.images[0].uploadId}` }] : undefined },
+    openGraph: { title: p.nameAr, description, type: "website", images: p.images[0] ? [{ url: imageUrl(p.images[0].uploadId) }] : undefined },
     robots: p.isDemo ? { index: false, follow: true } : undefined,
   };
 }

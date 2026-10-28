@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { X, ZoomIn } from "lucide-react";
 import { CategoryIcon } from "../ui/icons";
+import { imageUrl } from "@/lib/demo";
 
 export function Gallery({ images, name, icon }: { images: { uploadId: string; alt: string | null }[]; name: string; icon?: string | null }) {
   const [i, setI] = useState(0);
@@ -34,7 +35,7 @@ export function Gallery({ images, name, icon }: { images: { uploadId: string; al
         onClick={() => setLightbox(true)}
       >
         <Image
-          src={`/api/images/${cur.uploadId}`}
+          src={imageUrl(cur.uploadId)}
           alt={cur.alt || name}
           fill
           priority
@@ -57,7 +58,7 @@ export function Gallery({ images, name, icon }: { images: { uploadId: string; al
               aria-label={`الصورة ${idx + 1}`}
               aria-current={idx === i}
             >
-              <Image src={`/api/images/${im.uploadId}`} alt="" fill sizes="80px" className="object-contain p-1" />
+              <Image src={imageUrl(im.uploadId)} alt="" fill sizes="80px" className="object-contain p-1" />
             </button>
           ))}
         </div>
@@ -68,7 +69,7 @@ export function Gallery({ images, name, icon }: { images: { uploadId: string; al
             <X className="h-6 w-6" />
           </button>
           <div className="relative h-[85vh] w-full max-w-4xl rounded-2xl bg-white">
-            <Image src={`/api/images/${cur.uploadId}`} alt={cur.alt || name} fill sizes="100vw" className="object-contain p-4" />
+            <Image src={imageUrl(cur.uploadId)} alt={cur.alt || name} fill sizes="100vw" className="object-contain p-4" />
           </div>
         </div>
       )}
