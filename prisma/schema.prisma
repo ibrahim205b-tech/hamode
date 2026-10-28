@@ -1,0 +1,577 @@
+// HAMMOUDI EXPERT — حمودي الخبير
+// المخطط العلائقي الكامل لقاعدة البيانات
+// كل المبالغ بالدينار العراقي كأعداد صحيحة (بدون كسور)
+
+generator client {
+  provider        = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── المستخدمون والصلاحيات ─────────────────────────
+
+enum Role {
+  OWNER // المالك: كل الصلاحيات
+  ADMIN // مدير: كل شيء عدا إدارة المستخدمين الإداريين
+  STAFF // موظف: الطلبات والمخزون (بدون التكاليف والتقارير المالية)
+  CUSTOMER // زبون
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String?   @unique
+  phone        String?   @unique
+  passwordHash String
+  role         Role      @default(CUSTOMER)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions           Session[]
+  resetTokens        PasswordResetToken[]
+  customer           Customer?
+  auditLogs          AuditLog[]
+  inventoryMovements InventoryMovement[]
+  statusChanges      OrderStatusHistory[]
+  payments           Payment[]
+  purchaseOrders     PurchaseOrder[]
+
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model RateLimit {
+  key         String   @id
+  count       Int
+  windowStart DateTime
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  details    Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+}
+
+// ───────────────────────── الإعدادات ─────────────────────────
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// صور مخزنة داخل قاعدة البيانات (WebP مضغوط) — لا تضيع عند إعادة تشغيل الخادم
+model Upload {
+  id        String   @id @default(cuid())
+  mime      String
+  data      Bytes
+  width     Int
+  height    Int
+  size      Int
+  createdAt DateTime @default(now())
+
+  productImages ProductImage[]
+}
+
+// ───────────────────────── الكتالوج ─────────────────────────
+
+model Category {
+  id            String     @id @default(cuid())
+  slug          String     @unique
+  nameAr        String
+  nameEn        String?
+  description   String?
+  icon          String? // اسم أيقونة من مجموعة الأيقونات الداخلية
+  parentId      String?
+  parent        Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children      Category[] @relation("CategoryTree")
+  sortOrder     Int        @default(0)
+  isActive      Boolean    @default(true)
+  isFeatured    Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  products      Product[]
+
+  @@index([parentId, sortOrder])
+}
+
+model Manufacturer {
+  id        String         @id @default(cuid())
+  slug      String         @unique
+  name      String
+  nameAr    String?
+  sortOrder Int            @default(0)
+  isActive  Boolean        @default(true)
+  families  DeviceFamily[]
+  createdAt DateTime       @default(now())
+}
+
+model DeviceFamily {
+  id             String        @id @default(cuid())
+  manufacturerId String
+  manufacturer   Manufacturer  @relation(fields: [manufacturerId], references: [id], onDelete: Restrict)
+  slug           String
+  name           String
+  sortOrder      Int           @default(0)
+  isActive       Boolean       @default(true)
+  models         DeviceModel[]
+
+  @@unique([manufacturerId, slug])
+}
+
+model DeviceModel {
+  id           String         @id @default(cuid())
+  familyId     String
+  family       DeviceFamily   @relation(fields: [familyId], references: [id], onDelete: Restrict)
+  slug         String         @unique
+  name         String
+  modelNumbers String? // أرقام الموديل الرسمية مفصولة بفواصل
+  aliases      String? // أسماء بديلة للبحث
+  releaseYear  Int?
+  sortOrder    Int            @default(0)
+  isActive     Boolean        @default(true)
+  variants     ModelVariant[]
+  compat       ProductCompatibility[]
+  createdAt    DateTime       @default(now())
+
+  @@index([familyId, sortOrder])
+}
+
+model ModelVariant {
+  id          String                 @id @default(cuid())
+  modelId     String
+  model       DeviceModel            @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  name        String
+  modelNumber String?
+  compat      ProductCompatibility[]
+
+  @@unique([modelId, name])
+}
+
+model ComponentType {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  nameAr    String
+  nameEn    String?
+  sortOrder Int       @default(0)
+  products  Product[]
+}
+
+model ProductCondition {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  nameAr      String
+  description String?
+  sortOrder   Int       @default(0)
+  products    Product[]
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model Product {
+  id                String            @id @default(cuid())
+  slug              String            @unique
+  sku               String            @unique
+  barcode           String?           @unique
+  nameAr            String
+  nameEn            String?
+  descriptionAr     String?
+  specs             Json? // [{label, value}]
+  installationNotes String?
+  compatibilityNote String? // تحذيرات التوافق
+  partBrand         String? // الشركة المصنعة للقطعة نفسها
+  partNumbers       String?
+  searchAliases     String?
+  qualityGrade      String?
+  warrantyText      String?
+  deliveryNote      String?
+  categoryId        String
+  category          Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  componentTypeId   String?
+  componentType     ComponentType?    @relation(fields: [componentTypeId], references: [id], onDelete: SetNull)
+  conditionId       String?
+  condition         ProductCondition? @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  price             Int
+  compareAtPrice    Int? // السعر السابق — للخصومات الحقيقية فقط
+  wholesalePrice    Int?
+  wholesaleMinQty   Int?
+  costPrice         Int? // سري — لا يظهر للزبائن
+  stockQty          Int               @default(0)
+  lowStockThreshold Int?
+  status            ProductStatus     @default(DRAFT)
+  isFeatured        Boolean           @default(false)
+  technicianOnly    Boolean           @default(false)
+  isDemo            Boolean           @default(false) // منتج تجريبي للعرض فقط
+  searchText        String            @default("") // نص بحث مُطبَّع (يُحدّث تلقائياً)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  images       ProductImage[]
+  compat       ProductCompatibility[]
+  movements    InventoryMovement[]
+  orderItems   OrderItem[]
+  poItems      PurchaseOrderItem[]
+  relations    ProductRelation[]      @relation("RelFrom")
+  relatedTo    ProductRelation[]      @relation("RelTo")
+
+  @@index([status, categoryId])
+  @@index([status, createdAt])
+  @@index([componentTypeId])
+  @@index([conditionId])
+  @@index([price])
+  @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_searchText_trgm_idx")
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  uploadId  String
+  upload    Upload  @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  alt       String?
+  sortOrder Int     @default(0)
+
+  @@index([productId, sortOrder])
+}
+
+enum CompatStatus {
+  VERIFIED // تم التحقق
+  UNVERIFIED // غير مُتحقق منه
+  UNKNOWN // غير معروف
+}
+
+model ProductCompatibility {
+  id        String        @id @default(cuid())
+  productId String
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  modelId   String
+  model     DeviceModel   @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  variantId String?
+  variant   ModelVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  status    CompatStatus  @default(UNVERIFIED)
+  note      String?
+
+  @@unique([productId, modelId, variantId])
+  @@index([modelId])
+}
+
+enum RelationType {
+  RELATED
+  ALTERNATIVE
+}
+
+model ProductRelation {
+  id        String       @id @default(cuid())
+  fromId    String
+  from      Product      @relation("RelFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  toId      String
+  to        Product      @relation("RelTo", fields: [toId], references: [id], onDelete: Cascade)
+  type      RelationType
+
+  @@unique([fromId, toId, type])
+}
+
+// ───────────────────────── المخزون والموردون ─────────────────────────
+
+enum MovementType {
+  STOCK_IN // إدخال مخزون يدوي
+  STOCK_OUT // إخراج مخزون يدوي
+  ADJUSTMENT // تسوية جرد
+  SALE // بيع (طلب)
+  SALE_RETURN // إرجاع بسبب إلغاء طلب
+  PURCHASE_RECEIPT // استلام مشتريات
+  IMPORT // استيراد ملف
+}
+
+model InventoryMovement {
+  id           String       @id @default(cuid())
+  productId    String
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  type         MovementType
+  quantity     Int // موجب = إدخال، سالب = إخراج
+  balanceAfter Int
+  unitCost     Int?
+  reason       String?
+  reference    String? // رقم الطلب أو أمر الشراء
+  userId       String?
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now())
+
+  @@index([productId, createdAt])
+  @@index([createdAt])
+}
+
+model Supplier {
+  id          String          @id @default(cuid())
+  name        String
+  phone       String?
+  contactName String?
+  address     String?
+  notes       String?
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  purchases   PurchaseOrder[]
+}
+
+enum PurchaseStatus {
+  DRAFT
+  ORDERED
+  RECEIVED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  REFUNDED
+}
+
+model PurchaseOrder {
+  id            String              @id @default(cuid())
+  number        String              @unique
+  supplierId    String
+  supplier      Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  status        PurchaseStatus      @default(DRAFT)
+  orderDate     DateTime            @default(now())
+  receivedAt    DateTime?
+  paymentStatus PaymentStatus       @default(UNPAID)
+  amountPaid    Int                 @default(0)
+  total         Int                 @default(0)
+  notes         String?
+  createdById   String?
+  createdBy     User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  items         PurchaseOrderItem[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([orderDate])
+}
+
+model PurchaseOrderItem {
+  id         String        @id @default(cuid())
+  purchaseId String
+  purchase   PurchaseOrder @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity   Int
+  unitCost   Int
+}
+
+// ───────────────────────── الزبائن ─────────────────────────
+
+model Customer {
+  id        String            @id @default(cuid())
+  name      String
+  phone     String // غير فريد: سجل الضيف منفصل عن سجل الحساب لحماية الخصوصية
+  userId    String?           @unique
+  user      User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  notes     String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  addresses CustomerAddress[]
+  orders    Order[]
+
+  @@index([phone])
+}
+
+model CustomerAddress {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label       String?
+  governorate String
+  area        String
+  address     String
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+// ───────────────────────── التوصيل والخصومات ─────────────────────────
+
+enum DeliveryKind {
+  DELIVERY
+  PICKUP
+}
+
+model DeliveryMethod {
+  id          String           @id @default(cuid())
+  nameAr      String
+  description String?
+  kind        DeliveryKind     @default(DELIVERY)
+  baseFee     Int              @default(0)
+  freeOver    Int? // توصيل مجاني فوق هذا المبلغ
+  isActive    Boolean          @default(true)
+  sortOrder   Int              @default(0)
+  rates       GovernorateRate[]
+}
+
+model GovernorateRate {
+  id          String         @id @default(cuid())
+  methodId    String
+  method      DeliveryMethod @relation(fields: [methodId], references: [id], onDelete: Cascade)
+  governorate String
+  fee         Int
+
+  @@unique([methodId, governorate])
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+model Discount {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  description String?
+  type        DiscountType
+  value       Int
+  minSubtotal Int?
+  maxUses     Int?
+  usedCount   Int          @default(0)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+}
+
+// ───────────────────────── الطلبات ─────────────────────────
+
+enum OrderStatus {
+  NEW
+  AWAITING_CONFIRMATION
+  CONFIRMED
+  PREPARING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  number          String        @unique
+  accessTokenHash String        @unique // رابط سري للزبون لعرض طلبه
+  idempotencyKey  String        @unique // منع الطلبات المكررة
+  customerId      String
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerName    String
+  phone           String
+  governorate     String
+  area            String
+  address         String
+  notes           String?
+  deliveryMethod  String // لقطة من اسم طريقة التوصيل
+  paymentMethod   String        @default("COD")
+  status          OrderStatus   @default(NEW)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  subtotal        Int
+  discountTotal   Int           @default(0)
+  discountCode    String?
+  deliveryFee     Int           @default(0)
+  total           Int
+  cancelReason    String?
+  shippingCarrier String?
+  trackingNumber  String?
+  internalNote    String?
+  stockReleased   Boolean       @default(false) // أُعيد المخزون بعد الإلغاء
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  confirmedAt     DateTime?
+  deliveredAt     DateTime?
+  cancelledAt     DateTime?
+
+  items    OrderItem[]
+  history  OrderStatusHistory[]
+  payments Payment[]
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([phone])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  nameAr    String // لقطة تاريخية
+  sku       String
+  unitPrice Int
+  unitCost  Int? // لقطة التكلفة لحساب الربح
+  quantity  Int
+  lineTotal Int
+
+  @@index([productId])
+}
+
+model OrderStatusHistory {
+  id         String       @id @default(cuid())
+  orderId    String
+  order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  note       String?
+  userId     String?
+  user       User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt  DateTime     @default(now())
+
+  @@index([orderId])
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount     Int // موجب = مقبوض، سالب = مسترجع
+  method     String   @default("COD")
+  note       String?
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  receivedAt DateTime @default(now())
+
+  @@index([receivedAt])
+}

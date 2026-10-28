@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hammoudi_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/hammoudi_ci?schema=public
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      ORDER_RATE_LIMIT: "1000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Migrate and seed
+        run: |
+          npx prisma migrate deploy
+          npm run db:seed:demo
+      - name: Production build
+        run: npm run build
+      - name: Create CI admin
+        run: npm run admin:create
+        env:
+          ADMIN_EMAIL: ci-owner@example.com
+          ADMIN_PASSWORD: ${{ github.run_id }}Ci-Pass-1
+          ADMIN_NAME: CI
+      - name: Install Playwright Chromium
+        run: npx playwright-core install --with-deps chromium
+      - name: End-to-end tests
+        timeout-minutes: 12
+        run: |
+          npx next start -p 3000 > server.log 2>&1 &
+          npx wait-on -t 60000 http://localhost:3000 || (cat server.log; exit 1)
+          node scripts/e2e.mjs
+        env:
+          BASE_URL: http://localhost:3000
+          E2E_ADMIN_EMAIL: ci-owner@example.com
+          E2E_ADMIN_PASSWORD: ${{ github.run_id }}Ci-Pass-1
+      - name: Server log
+        if: failure()
+        run: cat server.log || true
